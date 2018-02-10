@@ -6,8 +6,9 @@ Video service backend created for in-company golang course.
 
 *Almost done, needs refactoring.*
 
-| setup web server  | done                  |
+| subtask           | status                |
 |-------------------|-----------------------|
+| setup web server  | done                  |
 | write router      | done                  |
 | add logger        | done                  |
 | dep               | N/A (I prefer go get) |
@@ -19,7 +20,8 @@ Video service backend created for in-company golang course.
 
 *Done but needs refactoring.*
 
-| file upload           | done |
-|-----------------------|------|
-| list video from MySQL | done |
-| add video to MySQL    | done |
+| subtask               | status |
+|-----------------------|--------|
+| file upload           | done   |
+| list video from MySQL | done   |
+| add video to MySQL    | done   |
