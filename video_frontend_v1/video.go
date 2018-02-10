@@ -5,19 +5,23 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/segmentio/ksuid"
 )
 
+const (
+	videoUrlPrefix = "content/"
+)
+
 // VideoListItem - item for the list video API.
+// field Duration - duration in seconds
 type VideoListItem struct {
-	ID        string        `json:"id"`
-	Name      string        `json:"name"`
-	Duration  time.Duration `json:"duration"`
-	Thumbnail string        `json:"thumbnail"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Duration  int    `json:"duration"`
+	Thumbnail string `json:"thumbnail"`
 }
 
 type VideoList []VideoListItem
@@ -28,26 +32,52 @@ type VideoInfo struct {
 }
 
 func getList(c APIContext) error {
-	list := &VideoList{
-		VideoListItem{
-			ID:        "d290",
-			Name:      "Black Retrospective Woman",
-			Duration:  time.Duration(15) * time.Second,
-			Thumbnail: "/content/d290f1ee-6c54-4b01-90e6-d701748f0851/screen.jpg",
-		},
+	db, err := openMysqlConn()
+	if err != nil {
+		return err
 	}
-	return c.WriteJSON(list)
+	defer db.Close()
+
+	rows, err := dbGetVideoList(db)
+	if err != nil {
+		return err
+	}
+
+	var result VideoList
+	for _, row := range rows {
+		video := VideoListItem{
+			ID:        row.key,
+			Name:      row.title,
+			Duration:  row.duration,
+			Thumbnail: row.thumbnail,
+		}
+		result = append(result, video)
+	}
+	return c.WriteJSON(result)
 }
 
 func getVideo(c APIContext) error {
+	id := c.Vars()["id"]
+
+	db, err := openMysqlConn()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	row, err := dbVideoInfo(db, id)
+	if err != nil {
+		return err
+	}
+
 	info := &VideoInfo{
 		VideoListItem: VideoListItem{
-			ID:        "d290",
-			Name:      "Black Retrospective Woman",
-			Duration:  time.Duration(15) * time.Second,
-			Thumbnail: "/content/d290f1ee-6c54-4b01-90e6-d701748f0851/screen.jpg",
+			ID:        row.key,
+			Name:      row.title,
+			Duration:  row.duration,
+			Thumbnail: row.thumbnail,
 		},
-		URL: "/content/d290f1ee-6c54-4b01-90e6-d701748f0851/index.mp4",
+		URL: row.url,
 	}
 	return c.WriteJSON(info)
 }
@@ -57,7 +87,7 @@ func uploadVideo(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	// contentType := header.Header.Get("Content-Type")
+	// TODO: check contentType := header.Header.Get("Content-Type")
 	filename := header.Filename
 
 	suid := ksuid.New()
@@ -75,6 +105,22 @@ func uploadVideo(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	dstFile, err := os.OpenFile(dstFilePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
+	if err != nil {
+		return err
+	}
+
+	db, err := openMysqlConn()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	row := VideoRow{
+		key:   suid.String(),
+		title: path.Base(filename),
+		url:   videoUrlPrefix + dstFilePath,
+	}
+	err = dbRegisterVideo(db, row)
 	if err != nil {
 		return err
 	}

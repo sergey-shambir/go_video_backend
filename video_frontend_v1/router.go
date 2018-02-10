@@ -2,12 +2,9 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
-	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -16,7 +13,7 @@ import (
 
 // APIContext - provides access to request parameters and other information for the API handler
 type APIContext interface {
-	ParseArgs(args interface{}) error
+	Vars() map[string]string
 	WriteJSON(result interface{}) error
 }
 
@@ -33,9 +30,8 @@ type DefaultAPIContext struct {
 }
 
 // ParseArgs - parses arguments from JSON (for POST/PUT/DELETE) or from URL (for GET)
-func (c *DefaultAPIContext) ParseArgs(args interface{}) error {
-	// TODO: implement me
-	return errors.New("not implemented")
+func (c *DefaultAPIContext) Vars() map[string]string {
+	return mux.Vars(c.request)
 }
 
 func (c *DefaultAPIContext) WriteJSON(result interface{}) error {
@@ -48,35 +44,18 @@ func (c *DefaultAPIContext) WriteJSON(result interface{}) error {
 	if err != nil {
 		return err
 	}
-	c.writer.WriteHeader(http.StatusOK)
 	return nil
 }
 
-func setupFileLogger() *os.File {
+func openFileLogger() *os.File {
 	logrus.SetFormatter(&logrus.JSONFormatter{})
+
 	file, err := os.OpenFile("video_frontend.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 	if err != nil {
 		panic(err)
 	}
-	log.SetOutput(file)
+	logrus.SetOutput(file)
 	return file
-}
-
-// formatRequest generates ascii representation of a request
-// TODO: remove me
-func formatRequest(r *http.Request) string {
-	// Create return string
-	var request []string
-
-	// If this is a POST, add post data
-	if r.Method == "POST" {
-		r.ParseForm()
-		request = append(request, "\n")
-		request = append(request, r.Form.Encode())
-	}
-
-	// Return the request as a string
-	return strings.Join(request, "\n")
 }
 
 func newRouter() *mux.Router {
@@ -89,12 +68,9 @@ func newRouter() *mux.Router {
 			inner.ServeHTTP(w, r)
 
 			fields := logrus.Fields{
-				"time":      time.Since(start),
-				"method":    r.Method,
-				"url":       r.RequestURI,
-				"POST data": formatRequest(r),
-				// "remote": r.RemoteAddr,
-				// "userAgent": r.UserAgent(),
+				"time":   time.Since(start),
+				"method": r.Method,
+				"url":    r.RequestURI,
 			}
 			logrus.WithFields(fields).Info("done")
 		})
@@ -113,12 +89,12 @@ func newRouter() *mux.Router {
 					"time":   time.Since(start),
 					"method": r.Method,
 					"url":    r.RequestURI,
-					// "remote": r.RemoteAddr,
-					// "userAgent": r.UserAgent(),
 				}
 				logrus.WithFields(fields).Error("request failure")
 				io.WriteString(w, err.Error())
 				w.WriteHeader(http.StatusInternalServerError)
+			} else {
+				w.WriteHeader(http.StatusOK)
 			}
 		})
 	}
@@ -138,6 +114,8 @@ func newRouter() *mux.Router {
 				logrus.WithFields(fields).Error("request failure")
 				io.WriteString(w, err.Error())
 				w.WriteHeader(http.StatusInternalServerError)
+			} else {
+				w.WriteHeader(http.StatusOK)
 			}
 		})
 	}

@@ -12,11 +12,12 @@ import (
 )
 
 const (
-	defaultServerURL = "localhost:8000"
+	defaultServerURL = "localhost:8081"
 	defaultWorkdir   = "../../src/workshops2018/web/content"
 )
 
 func main() {
+	// TODO: don't make chdir and load workdir from config / env
 	err := chdirWorkdir()
 	if err != nil {
 		panic(err)
@@ -24,7 +25,7 @@ func main() {
 
 	killChan := getKillSignalChan()
 
-	logFile := setupFileLogger()
+	logFile := openFileLogger()
 	defer logFile.Close()
 	server := startServer(defaultServerURL)
 	waitForKillSignal(killChan)
