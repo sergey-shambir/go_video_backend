@@ -23,7 +23,7 @@ type VideoRow struct {
 	thumbnail string
 }
 
-// TODO: extract interface VideoRepository and implement it to keep *sql.DB as filed
+// TODO: extract interface VideoRepository and implement it to keep `*sql.DB` as filed
 
 func openMysqlConn() (*sql.DB, error) {
 	return sql.Open("mysql", fmt.Sprintf("%s:%s@%s/workshop_video_server", mysqlUser, mysqlPassword, mysqlHost))
